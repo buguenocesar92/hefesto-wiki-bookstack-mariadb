@@ -1,0 +1,71 @@
+name: ${COMPOSE_PROJECT_NAME:?Run scripts/configure.py}
+services:
+  db:
+    image: mariadb:11.4
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: bookstack
+      MARIADB_USER: bookstack
+      MARIADB_PASSWORD: ${DB_PASSWORD:?Generate .env}
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?Generate .env}
+    volumes: [database:/var/lib/mysql]
+    networks: [backend]
+    healthcheck:
+      test: [CMD, healthcheck.sh, --connect, --innodb_initialized]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+    logging: &logging
+      driver: json-file
+      options: {max-size: 10m, max-file: "3"}
+  wiki:
+    image: linuxserver/bookstack:version-v26.09.1@sha256:0d66f65417fa667085849bf9b32b412ec9a90420773c4f47a95138c4711876b7
+    restart: unless-stopped
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      TZ: America/Santiago
+      APP_URL: https://${WIKI_HOST:?Set domain}
+      APP_KEY: ${APP_KEY:?Generate .env}
+      APP_LANG: es
+      APP_TIMEZONE: UTC
+      APP_DISPLAY_TIMEZONE: America/Santiago
+      APP_DEBUG: "false"
+      APP_PROXIES: ${APP_PROXIES:-null}
+      SESSION_SECURE_COOKIE: "true"
+      DB_HOST: db
+      DB_PORT: "3306"
+      DB_DATABASE: bookstack
+      DB_USERNAME: bookstack
+      DB_PASSWORD: ${DB_PASSWORD:?Generate .env}
+      STORAGE_TYPE: local_secure_restricted
+      FILE_UPLOAD_SIZE_LIMIT: "20"
+      QUEUE_CONNECTION: sync
+      MAIL_DRIVER: smtp
+      MAIL_HOST: ${SMTP_HOST:-127.0.0.1}
+      MAIL_PORT: ${SMTP_PORT:-2525}
+      MAIL_USERNAME: ${SMTP_USERNAME:-null}
+      MAIL_PASSWORD: ${SMTP_PASSWORD:-null}
+      MAIL_ENCRYPTION: ${SMTP_ENCRYPTION:-null}
+      MAIL_FROM: ${MAIL_FROM:-wiki@example.invalid}
+      MAIL_FROM_NAME: Hefesto Wiki
+    volumes: [config:/config]
+    expose: ["80"]
+    networks: [backend, default]
+    depends_on:
+      db: {condition: service_healthy}
+    healthcheck:
+      test: [CMD-SHELL, "curl -fsS --max-time 8 http://127.0.0.1/login >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      start_period: 120s
+      retries: 10
+    logging: *logging
+volumes:
+  database:
+    name: ${DB_VOLUME:?Run scripts/configure.py}
+  config:
+    name: ${CONFIG_VOLUME:?Run scripts/configure.py}
+networks:
+  backend:
+  default:

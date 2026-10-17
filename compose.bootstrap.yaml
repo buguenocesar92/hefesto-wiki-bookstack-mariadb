@@ -1,0 +1,8 @@
+# Acceso inicial privado mediante tunel SSH; quitar al publicar HTTPS.
+services:
+  wiki:
+    environment:
+      APP_URL: http://127.0.0.1:6875
+      SESSION_SECURE_COOKIE: "false"
+    ports:
+      - "127.0.0.1:6875:80"
